@@ -78,7 +78,12 @@ client.on('messageCreate', async (message) => {
 
       if (calculatorLink.length > 512) {
         console.warn(`Generated URL is too long (${calculatorLink.length}) and was skipped.`);
-        return message.reply(`The generated link for this turn is too long for a button. Here it is directly:\n[Sap Calculator](${calculatorLink})`);
+        const linkText = `Sap Calculator URL for Turn ${turnNumber}:\n${calculatorLink}\n`;
+        const buffer = Buffer.from(linkText, 'utf-8');
+        return message.reply({
+          content: `The generated link for this turn is too long for a button. I've attached it as a text file.`,
+          files: [{ attachment: buffer, name: `sap_calculator_turn_${turnNumber}.txt` }]
+        });
       }
       const button = new ButtonBuilder();
       button.data = {
@@ -379,3 +384,4 @@ client.on('messageCreate', async (message) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+

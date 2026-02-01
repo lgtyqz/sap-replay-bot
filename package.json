@@ -15,6 +15,9 @@
     "dotenv": "^17.2.0",
     "lz-string": "^1.5.0",
     "playwright": "^1.57.0",
-    "sap-calculator": "git+https://github.com/robertley/SAP-Calculator.git"
+    "sap-calculator": "github:robertley/SAP-Calculator#main"
+  },
+  "overrides": {
+    "undici": "^6.23.0"
   }
 }
