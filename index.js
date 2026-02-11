@@ -76,7 +76,14 @@ client.on('messageCreate', async (message) => {
       const calculatorState = parseReplayForCalculator(targetBattle, buildModel);
       const calculatorLink = generateCalculatorLink(calculatorState);
 
-      if (calculatorLink.length > 512) {
+      if (calculatorLink.length > 1800) {
+        const linkText = `Sap Calculator URL for Turn ${turnNumber}:\n${calculatorLink}\n`;
+        const buffer = Buffer.from(linkText, 'utf-8');
+        return message.reply({
+          content: `The generated link for this turn is too long for a link. I've attached it as a text file.`,
+          files: [{ attachment: buffer, name: `sap_calculator_turn_${turnNumber}.txt` }]
+        });
+      } else if (calculatorLink.length > 512) {
         console.warn(`Generated URL is too long (${calculatorLink.length}) and was skipped.`);
         return message.reply(`The generated link for this turn is too long for a button. Here it is directly:\n[Sap Calculator](${calculatorLink})`);
       }
