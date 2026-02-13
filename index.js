@@ -54,6 +54,9 @@ client.on('messageCreate', async (message) => {
       if (!rawReplay.ok) {
         throw new Error(`API returned status ${rawReplay.status}`);
       }
+      await fetch(`https://sap-library.vercel.app/api/replays/${participationId}`, {
+        method: "POST"
+      });
       const replay = await rawReplay.json();
       let buildModel = null;
       if (replay.GenesisModeModel) {
@@ -319,6 +322,11 @@ client.on('messageCreate', async (message) => {
 
   // Request replay data from server
   const rawReplay = await fetchReplay(participationId);
+  if(rawReplay.ok){
+    await fetch(`https://sap-library.vercel.app/api/replays/${participationId}`, {
+      method: "POST"
+    });
+  }
   const replay = await rawReplay.json();
   const actions = replay["Actions"];
   let buildModel = null;
