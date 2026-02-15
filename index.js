@@ -54,6 +54,9 @@ client.on('messageCreate', async (message) => {
       if (!rawReplay.ok) {
         throw new Error(`API returned status ${rawReplay.status}`);
       }
+      await fetch(`https://sap-library.vercel.app/api/replays/${participationId}`, {
+        method: "POST"
+      });
       const replay = await rawReplay.json();
       let buildModel = null;
       if (replay.GenesisModeModel) {
@@ -76,7 +79,14 @@ client.on('messageCreate', async (message) => {
       const calculatorState = parseReplayForCalculator(targetBattle, buildModel);
       const calculatorLink = generateCalculatorLink(calculatorState);
 
-      if (calculatorLink.length > 512) {
+      if (calculatorLink.length > 1800) {
+        const linkText = `Sap Calculator URL for Turn ${turnNumber}:\n${calculatorLink}\n`;
+        const buffer = Buffer.from(linkText, 'utf-8');
+        return message.reply({
+          content: `The generated link for this turn is too long for a link. I've attached it as a text file.`,
+          files: [{ attachment: buffer, name: `sap_calculator_turn_${turnNumber}.txt` }]
+        });
+      } else if (calculatorLink.length > 512) {
         console.warn(`Generated URL is too long (${calculatorLink.length}) and was skipped.`);
         const linkText = `Sap Calculator URL for Turn ${turnNumber}:\n${calculatorLink}\n`;
         const buffer = Buffer.from(linkText, 'utf-8');
@@ -317,6 +327,11 @@ client.on('messageCreate', async (message) => {
 
   // Request replay data from server
   const rawReplay = await fetchReplay(participationId);
+  if(rawReplay.ok){
+    await fetch(`https://sap-library.vercel.app/api/replays/${participationId}`, {
+      method: "POST"
+    });
+  }
   const replay = await rawReplay.json();
   const actions = replay["Actions"];
   let buildModel = null;
