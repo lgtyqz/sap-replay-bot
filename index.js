@@ -17,6 +17,10 @@ const { renderReplayImage } = require('./lib/render');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  makeCache: Options.cacheWithLimits({
+		...Options.DefaultMakeCacheSettings,
+		MessageManager: 1,
+	}),
   sweepers: {
 		...Options.DefaultSweeperSettings,
 		messages: {
