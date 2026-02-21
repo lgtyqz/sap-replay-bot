@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, Events, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, Events, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, Options } = require('discord.js');
 
 const { A_DAY_IN_MS } = require('./lib/config');
 const { login, fetchReplay } = require('./lib/api');
@@ -15,7 +15,16 @@ const {
 } = require('./lib/calculator');
 const { renderReplayImage } = require('./lib/render');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  sweepers: {
+		...Options.DefaultSweeperSettings,
+		messages: {
+			interval: 1800,
+			lifetime: 900,
+		}
+	},
+});
 
 client.once(Events.ClientReady, async readyClient => {
   await login();
