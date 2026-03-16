@@ -379,7 +379,14 @@ client.on('messageCreate', async (message) => {
   if (includeOdds) {
     try {
       if (useHeadless) {
-        winPercentResults = await buildWinPercentReportHeadless(calcBattles, buildModel);
+        let rawResults = await fetch("https://jg4k9imbul.execute-api.us-east-2.amazonaws.com/staging/", {
+          method: "POST",
+          body: JSON.stringify({
+            battleJsonList: calcBattles,
+            buildModel
+          })
+        });
+        winPercentResults = await rawResults.json();
       } else {
         winPercentResults = await buildWinPercentReport(calcBattles, buildModel);
       }
