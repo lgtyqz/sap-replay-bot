@@ -3,7 +3,7 @@ const { Client, Events, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, Opti
 
 const { A_DAY_IN_MS } = require('./lib/config');
 const { login, fetchReplay } = require('./lib/api');
-const { getBattleInfo } = require('./lib/battle');
+const { getBattleInfo, getPetInfo } = require('./lib/battle');
 const DEBUG_MODE = String(process.env.DEBUG_MODE || '').toLowerCase() === 'true';
 const {
   buildWinPercentReport,
@@ -13,7 +13,8 @@ const {
   parseReplayForCalculator,
   generateCalculatorLink
 } = require('./lib/calculator');
-const { renderReplayImage } = require('./lib/render');
+const { renderReplayImage, renderCustomPackImage } = require('./lib/render');
+const { PETS, FOOD } = require('./lib/data');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
@@ -127,21 +128,49 @@ client.on('messageCreate', async (message) => {
     return;
   }
 
-  // check whether message contains the code format
+  // check for all code formats
   let participationId;
   let includeOdds = false;
   let useHeadless = false;
   let processingMessage = null;
+
+  let processingCustomPack = false;
+  let customPackTitle = "";
+  let customPackPets = [[], [], [], [], [], []];
+  let customPackFood = [[], [], [], [], [], []];
   if (trimmedContent.startsWith('{') && trimmedContent.endsWith('}')) {
     try {
       let replayObject = JSON.parse(message.content);
       participationId = replayObject["Pid"];
       console.log(`Participation Id: ${participationId}`);
+
+      if(replayObject["Title"] && replayObject["Minions"] && replayObject["Spells"]){
+        processingCustomPack = true;
+        console.log("Processing Custom Pack");
+        // Populate custom pack data
+        customPackTitle = replayObject["Title"];
+        const rawPets = replayObject["Minions"];
+        const rawFood = replayObject["Spells"];
+        for(let petID of rawPets){
+          let petJSON = PETS[petID];
+          console.log(petJSON.NameId);
+          if(petJSON){
+            customPackPets[petJSON.Tier - 1].push(petJSON.NameId);
+          }
+        }
+        for(let foodID of rawFood){
+          let foodJSON = FOOD[foodID];
+          if(foodJSON){
+            customPackFood[foodJSON.Tier - 1].push(foodJSON.NameId);
+          }
+        }
+      }
     } catch (e) {
+      console.error(e);
       return;
     }
 
-    if (!participationId) {
+    if (!participationId && !processingCustomPack) {
       message.reply("Replay Pid not found.");
       return;
     }
@@ -322,6 +351,20 @@ client.on('messageCreate', async (message) => {
       return message.reply("Replay Pid not found.");
     }
   } else {
+    return;
+  }
+
+  if(processingCustomPack){
+    console.log("Rendering Custom Pack Image");
+    const imageBuffer = await renderCustomPackImage(
+      customPackTitle,
+      customPackPets,
+      customPackFood
+    );
+
+    console.log("Sending custom pack image");
+
+    await message.reply({ files: [{ attachment: imageBuffer, name: "custom-pack.png" }] });
     return;
   }
 
