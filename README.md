@@ -20,6 +20,9 @@ DISCORD_TOKEN=your_discord_bot_token
 SAP_EMAIL=your_sap_email
 SAP_PASSWORD=your_sap_password
 DEBUG_MODE=false
+SAP_CALCULATOR_API_BASE=http://127.0.0.1:3000
+# Optional; defaults to 10 minutes per analyzed turn
+SAP_CALCULATOR_API_TIMEOUT_MS=600000
 ```
 
 4) Enable Discord intents:
@@ -45,9 +48,28 @@ node index.js
 ```
 !odds {"Pid":"<participation_id>","T":<turn_number>}
 ```
+- Optimize positioning for every replay turn (quick/player defaults):
+```
+!positioning <participation_id>
+```
+- Optimize one turn, with optional side and precision (`quick`, `standard`, or `high`):
+```
+!positioning {"Pid":"<participation_id>","T":8,"Side":"player","Precision":"quick"}
+```
+  `!position` is also accepted as a shorter alias.
+- Calculate BS1 board strength for every replay turn:
+```
+!strength <participation_id>
+```
+- Calculate BS1 board strength for one turn:
+```
+!strength {"Pid":"<participation_id>","T":8,"Precision":"quick"}
+```
 ## Output
 
 - The replay image includes win/loss/draw percentages for each turn.
+- Positioning images replace the selected side with its optimized lineup and show baseline-to-optimized odds.
+- Strength images show the player and opponent BS1 scores between the boards.
 - Row background colors:
   - Win: light green
   - Loss: light red
@@ -61,4 +83,8 @@ node index.js
 
 - `canvas` may require build tools on Windows. If install fails, install the Windows Build Tools or use a prebuilt environment.
 - Playwright requires a one-time browser download (`npx playwright install`).
+- Positioning and strength require the SAP Calculator replay server and use its
+  `/api/replay/positioning` and `/api/replay/strength` endpoints. Requests run
+  sequentially to avoid multiplying calculator load. Use `T` to restrict expensive
+  analysis to one replay turn.
 

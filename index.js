@@ -3,7 +3,7 @@ const { Client, Events, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, Opti
 
 const { A_DAY_IN_MS } = require('./lib/config');
 const { login, fetchReplay } = require('./lib/api');
-const { getBattleInfo, getPetInfo } = require('./lib/battle');
+const { getBattleInfo, getPetInfo, applyOptimizedLineup } = require('./lib/battle');
 const DEBUG_MODE = String(process.env.DEBUG_MODE || '').toLowerCase() === 'true';
 const {
   buildWinPercentReport,
@@ -15,6 +15,11 @@ const {
 } = require('./lib/calculator');
 const { renderReplayImage, renderCustomPackImage } = require('./lib/render');
 const { PETS, FOOD } = require('./lib/data');
+const {
+  parseAnalysisArgument,
+  selectTurnIndexes,
+  buildReplayAnalysis
+} = require('./lib/analysis');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
@@ -35,6 +40,22 @@ client.once(Events.ClientReady, async readyClient => {
   await login();
   setInterval(login, A_DAY_IN_MS);
 });
+
+function getStartingLives(battles, maxLives, targetIndex) {
+  let lives = maxLives;
+  for (let index = 0; index <= targetIndex; index += 1) {
+    if (index === 2 && lives < maxLives) {
+      lives += 1;
+    }
+    if (index === targetIndex) {
+      return lives;
+    }
+    if (battles[index]?.outcome === 2) {
+      lives -= 1;
+    }
+  }
+  return lives;
+}
 
 client.on('messageCreate', async (message) => {
   const trimmedContent = message.content.trim();
@@ -133,6 +154,8 @@ client.on('messageCreate', async (message) => {
   let includeOdds = false;
   let useHeadless = false;
   let processingMessage = null;
+  let analysisMode = null;
+  let analysisOptions = null;
 
   let processingCustomPack = false;
   let customPackTitle = "";
@@ -195,6 +218,37 @@ client.on('messageCreate', async (message) => {
       return message.reply("Replay Pid not found.");
     }
     console.log(`!odds Participation Id: ${participationId}`);
+  } else if (
+    lowerContent.startsWith('!positioning ') ||
+    lowerContent.startsWith('!position ')
+  ) {
+    const command = lowerContent.startsWith('!positioning ')
+      ? '!positioning'
+      : '!position';
+    const argument = trimmedContent.slice(command.length).trim();
+    try {
+      analysisOptions = parseAnalysisArgument(argument, {
+        command,
+        allowSide: true
+      });
+    } catch (error) {
+      return message.reply(error.message);
+    }
+    participationId = analysisOptions.participationId;
+    analysisMode = 'positioning';
+    console.log(`${command} Participation Id: ${participationId}`);
+  } else if (lowerContent.startsWith('!strength ')) {
+    const argument = trimmedContent.slice('!strength'.length).trim();
+    try {
+      analysisOptions = parseAnalysisArgument(argument, {
+        command: '!strength'
+      });
+    } catch (error) {
+      return message.reply(error.message);
+    }
+    participationId = analysisOptions.participationId;
+    analysisMode = 'strength';
+    console.log(`!strength Participation Id: ${participationId}`);
   } else if (lowerContent.startsWith('!debug ')) {
     if (!DEBUG_MODE) return;
     const jsonArgument = message.content.slice('!debug '.length).trim();
@@ -374,10 +428,24 @@ client.on('messageCreate', async (message) => {
     } else {
       processingMessage = await message.reply("Calculating odds (~1 min), please wait...");
     }
+  } else if (analysisMode) {
+    const label = analysisMode === 'positioning' ? 'positioning' : 'board strength';
+    processingMessage = await message.reply(
+      `Calculating ${label} (${analysisOptions.precision} precision; this may take several minutes), please wait...`
+    );
   }
 
   // Request replay data from server
   const rawReplay = await fetchReplay(participationId);
+  if (!rawReplay.ok) {
+    const content = `Replay API returned status ${rawReplay.status}. Please double-check the replay ID.`;
+    if (processingMessage) {
+      await processingMessage.edit(content);
+    } else {
+      await message.reply(content);
+    }
+    return;
+  }
   if(rawReplay.ok){
     await fetch(`https://sap-library.vercel.app/api/replays/${participationId}`, {
       method: "POST"
@@ -418,6 +486,25 @@ client.on('messageCreate', async (message) => {
       battleOpponentInfo.push(opponentInfo);
     }
   }
+  let selectedIndexes;
+  try {
+    selectedIndexes = selectTurnIndexes(numberOfBattles, analysisOptions?.turnNumber ?? null);
+  } catch (error) {
+    if (processingMessage) {
+      await processingMessage.edit(error.message);
+    } else {
+      await message.reply(error.message);
+    }
+    return;
+  }
+
+  const turnNumbers = selectedIndexes.map((index) => index + 1);
+  let renderBattles = selectedIndexes.map((index) => battles[index]);
+  const renderOpponentInfo = selectedIndexes.map((index) => battleOpponentInfo[index]);
+  const startingLives = selectedIndexes.length === 1
+    ? getStartingLives(battles, maxLives, selectedIndexes[0])
+    : null;
+
   let winPercentResults = [];
   if (includeOdds) {
     try {
@@ -438,19 +525,53 @@ client.on('messageCreate', async (message) => {
     }
   }
 
-  const headerOpponentName = battles.length ? battles[0].opponentName : null;
+  let analysisResults = [];
+  if (analysisMode) {
+    analysisResults = await buildReplayAnalysis({
+      replay,
+      turnNumbers,
+      mode: analysisMode,
+      precision: analysisOptions.precision,
+      side: analysisOptions.side,
+      onProgress: async (completed, total, turnNumber) => {
+        await processingMessage.edit(
+          `Calculating ${analysisMode}: completed turn ${turnNumber} (${completed}/${total})...`
+        );
+      }
+    });
+
+    if (analysisResults.every((result) => result?.error)) {
+      await processingMessage.edit(
+        `SAP Calculator ${analysisMode} failed: ${analysisResults[0]?.error || 'unknown error'}`
+      );
+      return;
+    }
+    if (analysisMode === 'positioning') {
+      renderBattles = renderBattles.map((battle, index) =>
+        applyOptimizedLineup(battle, analysisResults[index])
+      );
+    }
+  }
+
+  const headerOpponentName = renderBattles.length ? renderBattles[0].opponentName : null;
   const imageBuffer = await renderReplayImage({
-    battles,
-    battleOpponentInfo,
+    battles: renderBattles,
+    battleOpponentInfo: renderOpponentInfo,
     maxLives,
     includeOdds,
     winPercentResults,
     playerName,
-    headerOpponentName
+    headerOpponentName,
+    analysisMode,
+    analysisResults,
+    analysisOptions,
+    turnNumbers,
+    startingLives
   });
 
   if (processingMessage) {
-    await processingMessage.edit({ content: null, files: [{ attachment: imageBuffer, name: "replay.png" }] });
+    const fileName = analysisMode ? `${analysisMode}.png` : "replay.png";
+    await processingMessage.edit({ content: null, files: [{ attachment: imageBuffer, name: fileName }] });
   } else {
     await message.reply({ files: [{ attachment: imageBuffer, name: "replay.png" }] });
   }
