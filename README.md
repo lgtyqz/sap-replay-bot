@@ -20,6 +20,7 @@ DISCORD_TOKEN=your_discord_bot_token
 SAP_EMAIL=your_sap_email
 SAP_PASSWORD=your_sap_password
 DEBUG_MODE=false
+GAPED_BATTLE_WEBHOOK_URL=your_discord_webhook_url
 ```
 
 4) Enable Discord intents:
@@ -48,6 +49,7 @@ node index.js
 ## Output
 
 - The replay image includes win/loss/draw percentages for each turn.
+- Wins with a calculated win chance of 5% or less are uploaded as JSON attachments to `GAPED_BATTLE_WEBHOOK_URL`.
 - Row background colors:
   - Win: light green
   - Loss: light red
@@ -61,4 +63,3 @@ node index.js
 
 - `canvas` may require build tools on Windows. If install fails, install the Windows Build Tools or use a prebuilt environment.
 - Playwright requires a one-time browser download (`npx playwright install`).
-

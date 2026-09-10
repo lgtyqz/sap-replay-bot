@@ -15,6 +15,10 @@ const {
 } = require('./lib/calculator');
 const { renderReplayImage, renderCustomPackImage } = require('./lib/render');
 const { PETS, FOOD } = require('./lib/data');
+const { isGapedBattle } = require('./lib/luck');
+const { sendGapedBattleToWebhook } = require('./lib/gaped-battle-webhook');
+
+const GAPED_BATTLE_WEBHOOK_URL = process.env.GAPED_BATTLE_WEBHOOK_URL;
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
@@ -435,6 +439,25 @@ client.on('messageCreate', async (message) => {
       }
     } catch (error) {
       console.error("Auto-calc failed:", error);
+    }
+
+    for (let i = 0; i < battles.length; i++) {
+      const winPercent = winPercentResults[i];
+      if (!isGapedBattle(battles[i], winPercent)) {
+        continue;
+      }
+
+      try {
+        await sendGapedBattleToWebhook({
+          webhookUrl: GAPED_BATTLE_WEBHOOK_URL,
+          battle: calcBattles[i],
+          participationId,
+          turnNumber: i + 1,
+          winPercent
+        });
+      } catch (error) {
+        console.error(`Failed to log gaped battle for turn ${i + 1}:`, error);
+      }
     }
   }
 
