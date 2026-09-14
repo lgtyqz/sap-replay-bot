@@ -49,7 +49,7 @@ node index.js
 ## Output
 
 - The replay image includes win/loss/draw percentages for each turn.
-- Wins with a calculated win chance of 5% or less are uploaded as JSON attachments to `GAPED_BATTLE_WEBHOOK_URL`.
+- Wins with a calculated win chance of 5% or less are uploaded as JSON attachments to `GAPED_BATTLE_WEBHOOK_URL`. Weekly/custom-pack attachments include the player's full deck contents from the replay metadata.
 - Row background colors:
   - Win: light green
   - Loss: light red

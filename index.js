@@ -451,6 +451,7 @@ client.on('messageCreate', async (message) => {
         await sendGapedBattleToWebhook({
           webhookUrl: GAPED_BATTLE_WEBHOOK_URL,
           battle: calcBattles[i],
+          customPack: buildModel?.Bor?.Deck,
           participationId,
           turnNumber: i + 1,
           winPercent
