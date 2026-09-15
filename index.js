@@ -6,10 +6,6 @@ const { login, fetchReplay } = require('./lib/api');
 const { getBattleInfo, getPetInfo } = require('./lib/battle');
 const DEBUG_MODE = String(process.env.DEBUG_MODE || '').toLowerCase() === 'true';
 const {
-  buildWinPercentReport,
-  buildWinPercentReportHeadless,
-  getDebugBattle,
-  getDebugSequence,
   parseReplayForCalculator,
   generateCalculatorLink
 } = require('./lib/calculator');
@@ -135,7 +131,6 @@ client.on('messageCreate', async (message) => {
   // check for all code formats
   let participationId;
   let includeOdds = false;
-  let useHeadless = false;
   let processingMessage = null;
 
   let processingCustomPack = false;
@@ -181,7 +176,6 @@ client.on('messageCreate', async (message) => {
   } else if (lowerContent.startsWith('!odds ')) {
     const oddsArg = trimmedContent.slice('!odds '.length).trim();
     includeOdds = true;
-    useHeadless = true;
     if (!oddsArg) {
       return message.reply("Please provide a replay ID. Example: `!odds {\"Pid\":ABC123}`");
     }
@@ -199,141 +193,6 @@ client.on('messageCreate', async (message) => {
       return message.reply("Replay Pid not found.");
     }
     console.log(`!odds Participation Id: ${participationId}`);
-  } else if (lowerContent.startsWith('!debug ')) {
-    if (!DEBUG_MODE) return;
-    const jsonArgument = message.content.slice('!debug '.length).trim();
-
-    let replayData;
-    try {
-      replayData = JSON.parse(jsonArgument);
-    } catch (e) {
-      return message.reply("Invalid JSON format. Please provide the data like this: `!debug {\"Pid\":\"...\",\"T\":...}`");
-    }
-
-    const participationId = replayData.Pid;
-    const turnNumber = replayData.T;
-
-    if (!participationId || turnNumber === undefined) {
-      return message.reply("The provided JSON is missing the required `Pid` or `T` (turn number) field.");
-    }
-    if (isNaN(turnNumber) || turnNumber <= 0) {
-      return message.reply("Please provide a valid, positive turn number in the `T` field.");
-    }
-
-    try {
-      message.reply(`Fetching replay ${participationId} and calculating logs for Turn ${turnNumber}...`);
-      const rawReplay = await fetchReplay(participationId);
-      const replay = await rawReplay.json();
-      let buildModel = null;
-      if (replay.GenesisModeModel) {
-        try {
-          buildModel = JSON.parse(replay.GenesisModeModel);
-        } catch (error) {
-          console.warn("Failed to parse GenesisModeModel for debug:", error);
-        }
-      }
-
-      const battles = replay["Actions"].filter(action => action["Type"] === 0).map(action => JSON.parse(action["Battle"]));
-      const targetBattle = battles[turnNumber - 1];
-
-      if (!targetBattle) {
-        return message.reply(`Turn ${turnNumber} not found in this replay. Max turns: ${battles.length}`);
-      }
-
-      const debugResult = getDebugBattle(targetBattle, buildModel);
-      if (debugResult) {
-        const logContent = debugResult.logs.map(log => {
-          if (typeof log === 'string') return log;
-          return log.message || '[Log Object]';
-        }).join('\n');
-        const buffer = Buffer.from(logContent, 'utf-8');
-        await message.reply({
-          content: `**Debug Result for Turn ${turnNumber} (250 Simulations)**\n` +
-            `Player Win: ${debugResult.winrate.player}\n` +
-            `Opponent Win: ${debugResult.winrate.opponent}\n` +
-            `Draw: ${debugResult.winrate.draw}\n` +
-            `\nAttached: Logs from the first simulated battle.`,
-          files: [{ attachment: buffer, name: `battle_logs_turn_${turnNumber}.txt` }]
-        });
-      } else {
-        message.reply("Failed to generate debug logs.");
-      }
-    } catch (err) {
-      console.error(err);
-      message.reply("Error running debug calculation.");
-    }
-    return;
-  } else if (lowerContent.startsWith('!debugseq ')) {
-    if (!DEBUG_MODE) return;
-    const jsonArgument = message.content.slice('!debugseq '.length).trim();
-
-    let replayData;
-    try {
-      replayData = JSON.parse(jsonArgument);
-    } catch (e) {
-      return message.reply("Invalid JSON format. Please provide the data like this: `!debugSeq {\"Pid\":\"...\",\"T\":...}`");
-    }
-
-    const participationId = replayData.Pid;
-    const turnNumber = replayData.T;
-
-    if (!participationId || turnNumber === undefined) {
-      return message.reply("The provided JSON is missing the required `Pid` or `T` (turn number) field.");
-    }
-    if (isNaN(turnNumber) || turnNumber <= 0) {
-      return message.reply("Please provide a valid, positive turn number in the `T` field.");
-    }
-
-    try {
-      message.reply(`Fetching replay ${participationId} and calculating sequence logs up to Turn ${turnNumber}...`);
-      const rawReplay = await fetchReplay(participationId);
-      const replay = await rawReplay.json();
-      let buildModel = null;
-      if (replay.GenesisModeModel) {
-        try {
-          buildModel = JSON.parse(replay.GenesisModeModel);
-        } catch (error) {
-          console.warn("Failed to parse GenesisModeModel for debug sequence:", error);
-        }
-      }
-
-      const battles = replay["Actions"].filter(action => action["Type"] === 0).map(action => JSON.parse(action["Battle"]));
-      const targetBattle = battles[turnNumber - 1];
-
-      if (!targetBattle) {
-        return message.reply(`Turn ${turnNumber} not found in this replay. Max turns: ${battles.length}`);
-      }
-
-      // Slice battles up to the target turn for sequential simulation
-      const battleSequence = battles.slice(0, turnNumber);
-
-      const debugResult = getDebugSequence(battleSequence, turnNumber - 1, buildModel);
-
-      if (debugResult) {
-        // build summary string
-        let summary = `**Debug Sequence (1..${turnNumber})**\n`;
-        debugResult.results.forEach(r => {
-          summary += `Turn ${r.turn}: Player ${r.player} | Opponent ${r.opponent} | Draw ${r.draw}\n`;
-        });
-
-        const logContent = debugResult.logs.map(log => {
-          if (typeof log === 'string') return log;
-          return log.message || '[Log Object]';
-        }).join('\n');
-        const buffer = Buffer.from(logContent, 'utf-8');
-
-        await message.reply({
-          content: summary + `\nAttached: Logs for Turn ${turnNumber}.`,
-          files: [{ attachment: buffer, name: `battle_logs_turn_${turnNumber}.txt` }]
-        });
-      } else {
-        message.reply("Failed to generate debug logs.");
-      }
-    } catch (err) {
-      console.error(err);
-      message.reply("Error running debug calculation.");
-    }
-    return;
   } else if (lowerContent.startsWith('!sim ')) {
     if (!DEBUG_MODE) return;
     const simArg = trimmedContent.slice('!sim '.length).trim();
@@ -373,11 +232,7 @@ client.on('messageCreate', async (message) => {
   }
 
   if (includeOdds) {
-    if (useHeadless) {
-      processingMessage = await message.reply("Calculating odds (~1 min), please wait...");
-    } else {
-      processingMessage = await message.reply("Calculating odds (~1 min), please wait...");
-    }
+    processingMessage = await message.reply("Calculating odds (~1 min), please wait...");
   }
 
   // Request replay data from server
@@ -425,18 +280,14 @@ client.on('messageCreate', async (message) => {
   let winPercentResults = [];
   if (includeOdds) {
     try {
-      if (useHeadless) {
-        let rawResults = await fetch("https://jg4k9imbul.execute-api.us-east-2.amazonaws.com/staging/", {
-          method: "POST",
-          body: JSON.stringify({
-            battleJsonList: calcBattles,
-            buildModel
-          })
-        });
-        winPercentResults = await rawResults.json();
-      } else {
-        winPercentResults = await buildWinPercentReport(calcBattles, buildModel);
-      }
+      const rawResults = await fetch("https://jg4k9imbul.execute-api.us-east-2.amazonaws.com/staging/", {
+        method: "POST",
+        body: JSON.stringify({
+          battleJsonList: calcBattles,
+          buildModel
+        })
+      });
+      winPercentResults = await rawResults.json();
     } catch (error) {
       console.error("Auto-calc failed:", error);
     }

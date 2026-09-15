@@ -37,7 +37,7 @@ The Game uses third-party services that may collect information used to identify
 
 The SAP Library (sap-library.vercel.app)
 
-The SAP Calculator (sap-calculator.com)
+The SAP Calculator (lgtyqz.github.io/SAP-Calculator)
 
 Cookies
 Our service uses no cookies.

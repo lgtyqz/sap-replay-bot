@@ -1,6 +1,6 @@
 # SAP Replay Bot
 
-Discord bot that renders Super Auto Pets replay summaries and pulls SAP Calculator win/loss/draw percentages per turn.
+Discord bot that renders Super Auto Pets replay summaries and calculates win/loss/draw percentages per turn.
 
 ## Setup
 
@@ -9,12 +9,7 @@ Discord bot that renders Super Auto Pets replay summaries and pulls SAP Calculat
 npm install
 ```
 
-2) Install Playwright browsers:
-```powershell
-npx playwright install
-```
-
-3) Create `.env` in the repo root:
+2) Create `.env` in the repo root:
 ```env
 DISCORD_TOKEN=your_discord_bot_token
 SAP_EMAIL=your_sap_email
@@ -23,10 +18,10 @@ DEBUG_MODE=false
 GAPED_BATTLE_WEBHOOK_URL=your_discord_webhook_url
 ```
 
-4) Enable Discord intents:
+3) Enable Discord intents:
 - Developer Portal -> Bot -> Privileged Gateway Intents -> Message Content Intent
 
-5) Run the bot:
+4) Run the bot:
 ```powershell
 node index.js
 ```
@@ -38,13 +33,13 @@ node index.js
 ```
 !calc {"Pid":"<participation_id>","T":<turn_number>}
 ```
-- Calculate win rates for each turn (Headless Node.js):
-```
-!sim {"Pid":"<participation_id>","T":<turn_number>}
-```
-- Calculate win rates for each turn (Playwright Browser - Slow):
+- Calculate win rates for each turn using the remote simulation service:
 ```
 !odds {"Pid":"<participation_id>","T":<turn_number>}
+```
+- With `DEBUG_MODE=true`, `!sim` is an alias for the same remote calculation:
+```
+!sim {"Pid":"<participation_id>","T":<turn_number>}
 ```
 ## Output
 
@@ -62,4 +57,3 @@ node index.js
 ## Notes
 
 - `canvas` may require build tools on Windows. If install fails, install the Windows Build Tools or use a prebuilt environment.
-- Playwright requires a one-time browser download (`npx playwright install`).
