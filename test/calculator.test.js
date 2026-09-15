@@ -68,3 +68,39 @@ test('keeps Abomination swallow data in generated calculator links', () => {
   assert.equal(linkedState.p[0].aSP1, 'Vampire Bat');
   assert.equal(linkedState.p[0].aSP1L, 2);
 });
+
+test('maps Slime and Eagle Owl power counters to battles fought', () => {
+  const battle = {
+    UserBoard: board([
+      pet(375, 4, { Pow: { SlimeAbility: 4 } })
+    ]),
+    OpponentBoard: board([
+      pet(781, 4, { Pow: { EagleOwlAbility: 1 } })
+    ])
+  };
+
+  const state = parseReplayForCalculator(battle);
+
+  assert.equal(state.playerPets[0].name, 'Slime');
+  assert.equal(state.playerPets[0].battlesFought, 4);
+  assert.equal(state.opponentPets[0].name, 'Eagle Owl');
+  assert.equal(state.opponentPets[0].battlesFought, 1);
+});
+
+test('keeps battles fought in generated calculator links', () => {
+  const battle = {
+    UserBoard: board([
+      pet(375, 4, { Pow: { SlimeAbility: 4 } })
+    ]),
+    OpponentBoard: board([
+      pet(781, 4, { Pow: { EagleOwlAbility: 1 } })
+    ])
+  };
+
+  const link = generateCalculatorLink(parseReplayForCalculator(battle));
+  const encodedState = link.slice(link.indexOf('?c=') + 3);
+  const linkedState = JSON.parse(Buffer.from(encodedState, 'base64').toString('utf8'));
+
+  assert.equal(linkedState.p[0].bF, 4);
+  assert.equal(linkedState.o[0].bF, 1);
+});
