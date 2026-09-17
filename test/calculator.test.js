@@ -69,6 +69,57 @@ test('keeps Abomination swallow data in generated calculator links', () => {
   assert.equal(linkedState.p[0].aSP1L, 2);
 });
 
+test('maps Parrot copied ability enums to the copied pet', () => {
+  const battle = {
+    UserBoard: board([
+      pet(53, 4, {
+        Abil: [
+          { Enu: 45, Lvl: 3, Nat: true },
+          { Enu: 17, Lvl: 1, Dur: 1 }
+        ]
+      })
+    ]),
+    OpponentBoard: board([])
+  };
+
+  const state = parseReplayForCalculator(battle);
+
+  assert.equal(state.playerPets[0].parrotCopyPet, 'Deer');
+});
+
+test('distinguishes a temporary Parrot copy from its native ability', () => {
+  const nativeBattle = {
+    UserBoard: board([
+      pet(53, 4, { Abil: [{ Enu: 45, Lvl: 1, Nat: true }] })
+    ]),
+    OpponentBoard: board([])
+  };
+  const copiedBattle = {
+    UserBoard: board([
+      pet(53, 4, { Abil: [{ Enu: 45, Lvl: 1, Dur: 1 }] })
+    ]),
+    OpponentBoard: board([])
+  };
+
+  assert.equal(parseReplayForCalculator(nativeBattle).playerPets[0].parrotCopyPet, null);
+  assert.equal(parseReplayForCalculator(copiedBattle).playerPets[0].parrotCopyPet, 'Parrot');
+});
+
+test('keeps Parrot copied ability data in generated calculator links', () => {
+  const battle = {
+    UserBoard: board([
+      pet(53, 4, { Abil: [{ Enu: 17, Lvl: 1, Dur: 1 }] })
+    ]),
+    OpponentBoard: board([])
+  };
+
+  const link = generateCalculatorLink(parseReplayForCalculator(battle));
+  const encodedState = link.slice(link.indexOf('?c=') + 3);
+  const linkedState = JSON.parse(Buffer.from(encodedState, 'base64').toString('utf8'));
+
+  assert.equal(linkedState.p[0].pCP, 'Deer');
+});
+
 test('maps Slime and Eagle Owl power counters to battles fought', () => {
   const battle = {
     UserBoard: board([
