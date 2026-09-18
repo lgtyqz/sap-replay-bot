@@ -120,6 +120,53 @@ test('keeps Parrot copied ability data in generated calculator links', () => {
   assert.equal(linkedState.p[0].pCP, 'Deer');
 });
 
+test('marks ability-disabled pets with an explicit empty ability list as plain copies', () => {
+  const battle = {
+    UserBoard: board([
+      pet(803, 4, {
+        AbDi: true,
+        Abil: [],
+        At: { Perm: 7, Temp: 2 },
+        Hp: { Perm: 8, Temp: 1 },
+        Perk: 9
+      }),
+      pet(0, 3, { AbDi: true })
+    ]),
+    OpponentBoard: board([
+      pet(32, 4, { AbDi: true, Abil: [{ Enu: 29, Lvl: 1 }] }),
+      pet(17, 3, { AbDi: false, Abil: [] })
+    ])
+  };
+
+  const state = parseReplayForCalculator(battle);
+
+  assert.equal(state.playerPets[0].name, 'Shima Enaga');
+  assert.equal(state.playerPets[0].plainCopy, true);
+  assert.equal(state.playerPets[0].attack, 9);
+  assert.equal(state.playerPets[0].health, 9);
+  assert.deepEqual(state.playerPets[0].equipment, { name: 'Garlic' });
+  assert.equal(state.playerPets[1].plainCopy, false);
+  assert.equal(state.opponentPets[0].plainCopy, false);
+  assert.equal(state.opponentPets[1].plainCopy, false);
+  assert.equal(state.plainCopies, true);
+});
+
+test('keeps plain-copy controls and pet flags in generated calculator links', () => {
+  const battle = {
+    UserBoard: board([]),
+    OpponentBoard: board([
+      pet(803, 4, { AbDi: true, Abil: [] })
+    ])
+  };
+
+  const link = generateCalculatorLink(parseReplayForCalculator(battle));
+  const encodedState = link.slice(link.indexOf('?c=') + 3);
+  const linkedState = JSON.parse(Buffer.from(encodedState, 'base64').toString('utf8'));
+
+  assert.equal(linkedState.pCs, true);
+  assert.equal(linkedState.o[0].pC, true);
+});
+
 test('maps Slime and Eagle Owl power counters to battles fought', () => {
   const battle = {
     UserBoard: board([
