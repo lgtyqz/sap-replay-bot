@@ -5,6 +5,7 @@ const {
   generateCalculatorLink,
   parseReplayForCalculator
 } = require('../lib/calculator');
+const { buildOddsRequest } = require('../lib/odds-request');
 
 function board(items) {
   return {
@@ -201,4 +202,77 @@ test('keeps battles fought in generated calculator links', () => {
 
   assert.equal(linkedState.p[0].bF, 4);
   assert.equal(linkedState.o[0].bF, 1);
+});
+
+test('parses shop progress, hurt counts, and food counts on both boards', () => {
+  const battle = {
+    UserBoard: board([
+      pet(696, 4, { SpCT: 1, Abil: [{ Enu: 742, Nat: true, Char: 1 }] }),
+      pet(269, 3, { Abil: [{ Enu: 294, Nat: true, Char: 3 }] }),
+      pet(572, 2, { HrtC: 2 })
+    ]),
+    OpponentBoard: board([
+      pet(148, 4, { Pow: { SabertoothTigerAbility: 4 } }),
+      pet(721, 3, { SpCT: 3 }),
+      pet(774, 2, { SpCT: 2 })
+    ])
+  };
+
+  const state = parseReplayForCalculator(battle);
+  assert.equal(state.playerPets[0].foodsEaten, 1);
+  assert.equal(state.playerPets[1].friendsHurtBeforeBattle, 3);
+  assert.equal(state.playerPets[2].timesHurt, 2);
+  assert.equal(state.opponentPets[0].timesHurt, 4);
+  assert.equal(state.opponentPets[1].foodsEaten, 3);
+  assert.equal(state.opponentPets[2].foodsEaten, 2);
+});
+
+test('uses native partial progress only for the relevant pets', () => {
+  const battle = {
+    UserBoard: board([
+      pet(696, 4, { SpCT: 3, Abil: [
+        { Enu: 17, Nat: true, Char: 2 },
+        { Enu: 742, Nat: true, Char: 1 }
+      ] }),
+      pet(269, 3, { Abil: [
+        { Enu: 17, Nat: true, Char: 1 },
+        { Enu: 294, Nat: true, Char: 2 }
+      ] })
+    ]),
+    OpponentBoard: board([
+      pet(17, 4, { Abil: [{ Enu: 15, Nat: true, Char: 2 }] }),
+      pet(269, 3, { Abil: [{ Enu: 294, Nat: false, Char: 3 }] })
+    ])
+  };
+
+  const state = parseReplayForCalculator(battle);
+  assert.equal(state.playerPets[0].foodsEaten, 1);
+  assert.equal(state.playerPets[1].friendsHurtBeforeBattle, 2);
+  assert.equal(state.opponentPets[0].friendsHurtBeforeBattle, undefined);
+  assert.equal(state.opponentPets[1].friendsHurtBeforeBattle, undefined);
+});
+
+test('keeps the new counters in calculator links and Lambda request states', () => {
+  const battle = {
+    UserBoard: board([
+      pet(269, 4, { Abil: [{ Enu: 294, Nat: true, Char: 2 }] }),
+      pet(572, 3, { HrtC: 3 }),
+      pet(721, 2, { SpCT: 2 })
+    ]),
+    OpponentBoard: board([pet(774, 4, { SpCT: 1 })])
+  };
+
+  const request = buildOddsRequest([battle], null);
+  assert.equal(request.battleJsonList[0], battle);
+  assert.equal(request.calculatorStateList[0].playerPets[0].friendsHurtBeforeBattle, 2);
+  assert.equal(request.calculatorStateList[0].playerPets[1].timesHurt, 3);
+  assert.equal(request.calculatorStateList[0].playerPets[2].foodsEaten, 2);
+  assert.equal(request.calculatorStateList[0].opponentPets[0].foodsEaten, 1);
+
+  const link = generateCalculatorLink(request.calculatorStateList[0]);
+  const linkedState = JSON.parse(Buffer.from(link.split('?c=')[1], 'base64').toString('utf8'));
+  assert.equal(linkedState.p[0].fHBB, 2);
+  assert.equal(linkedState.p[1].tH, 3);
+  assert.equal(linkedState.p[2].fE, 2);
+  assert.equal(linkedState.o[0].fE, 1);
 });

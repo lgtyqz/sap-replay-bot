@@ -13,6 +13,7 @@ const { renderReplayImage, renderCustomPackImage } = require('./lib/render');
 const { PETS, FOOD } = require('./lib/data');
 const { isGapedBattle } = require('./lib/luck');
 const { sendGapedBattleToWebhook } = require('./lib/gaped-battle-webhook');
+const { buildOddsRequest } = require('./lib/odds-request');
 
 const GAPED_BATTLE_WEBHOOK_URL = process.env.GAPED_BATTLE_WEBHOOK_URL;
 
@@ -282,10 +283,7 @@ client.on('messageCreate', async (message) => {
     try {
       const rawResults = await fetch("https://jg4k9imbul.execute-api.us-east-2.amazonaws.com/staging/", {
         method: "POST",
-        body: JSON.stringify({
-          battleJsonList: calcBattles,
-          buildModel
-        })
+        body: JSON.stringify(buildOddsRequest(calcBattles, buildModel))
       });
       winPercentResults = await rawResults.json();
     } catch (error) {
