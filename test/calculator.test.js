@@ -276,3 +276,26 @@ test('keeps the new counters in calculator links and Lambda request states', () 
   assert.equal(linkedState.p[2].fE, 2);
   assert.equal(linkedState.o[0].fE, 1);
 });
+
+test('keeps swallowed Fringehead memory and Gelada charge in odds and calculator links', () => {
+  const battle = {
+    UserBoard: board([
+      pet(696, 4, { Abil: [{ Enu: 742, Nat: true, Char: 1 }] })
+    ]),
+    OpponentBoard: board([
+      pet(763, 4, {
+        MiMs: { Lsts: { SarcasticFringeheadAbility: [{ Enu: 751, At: 4, Hp: 6, Lvl: 1 }] }, Count: 1 }
+      })
+    ])
+  };
+
+  const request = buildOddsRequest([battle], null);
+  const state = request.calculatorStateList[0];
+  assert.equal(state.playerPets[0].foodsEaten, 1);
+  assert.equal(state.opponentPets[0].sarcasticFringeheadSwallowedPet, 'Quetzalcoatlus');
+
+  const link = generateCalculatorLink(state);
+  const linkedState = JSON.parse(Buffer.from(link.split('?c=')[1], 'base64').toString('utf8'));
+  assert.equal(linkedState.p[0].fE, 1);
+  assert.equal(linkedState.o[0].sFSP, 'Quetzalcoatlus');
+});
